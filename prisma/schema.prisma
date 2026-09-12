@@ -1,0 +1,217 @@
+// Prisma Schema for Assist Application
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  CARETAKER
+  ADMIN
+}
+
+enum DisabilityCategory {
+  MOBILITY_IMPAIRMENT
+  VISUAL_IMPAIRMENT
+  HEARING_IMPAIRMENT
+  SPEECH_IMPAIRMENT
+  NEURODIVERGENT
+  MULTIPLE
+  CARETAKER_OR_ALLY
+}
+
+enum ObstacleType {
+  STEEP_INCLINE
+  BROKEN_SIDEWALK
+  HIGH_CURB_NO_RAMP
+  STAIRS_NO_ELEVATOR
+  CONSTRUCTION_BARRIER
+  WATERLOGGING_MUD
+  NARROW_PASSAGEWAY
+  OTHER
+}
+
+enum ObstacleSeverity {
+  MINOR_INCONVENIENCE
+  MODERATE_DIFFICULTY
+  TOTAL_BLOCK
+}
+
+enum BookingStatus {
+  REQUESTED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum VerificationStatus {
+  PENDING
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+model User {
+  id                String              @id @default(uuid())
+  firebaseUid       String?             @unique
+  fullName          String
+  phone             String              @unique
+  email             String?             @unique
+  city              String              @default("New Delhi")
+  disabilityType    DisabilityCategory?
+  role              Role                @default(USER)
+  highContrastPref  Boolean             @default(false)
+  textScalePref     Float               @default(1.0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  emergencyContacts EmergencyContact[]
+  submittedPlaces   AccessiblePlace[]   @relation("SubmittedPlaces")
+  reportedObstacles ObstacleReport[]    @relation("ReportedObstacles")
+  savedPhrases      SavedPhrase[]
+  caretakerProfile  CaretakerProfile?
+  userBookings      CaretakerBooking[]  @relation("UserBookings")
+  sentMessages      CaretakerMessage[]  @relation("SentMessages")
+}
+
+model EmergencyContact {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  phone     String
+  relation  String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AccessiblePlace {
+  id               String   @id @default(uuid())
+  name             String
+  category         String   // transit, hospital, mall, park, government, restaurant
+  address          String
+  city             String   // e.g. New Delhi, Mumbai, Bengaluru
+  latitude         Float
+  longitude        Float
+  photoUrl         String?
+  wheelchairRamp   Boolean  @default(false)
+  noStairsAccess   Boolean  @default(false)
+  accessibleToilet Boolean  @default(false)
+  tactilePaving    Boolean  @default(false)
+  brailleSignage   Boolean  @default(false)
+  audioAssist      Boolean  @default(false)
+  spaciousElevator Boolean  @default(false)
+  disabledParking  Boolean  @default(false)
+  verified         Boolean  @default(false)
+  submittedById    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  submittedBy User?            @relation("SubmittedPlaces", fields: [submittedById], references: [id])
+  obstacles   ObstacleReport[]
+}
+
+model ObstacleReport {
+  id             String           @id @default(uuid())
+  placeId        String?
+  routeSegmentId String?
+  latitude       Float
+  longitude      Float
+  obstacleType   ObstacleType
+  severity       ObstacleSeverity @default(MODERATE_DIFFICULTY)
+  description    String?
+  photoUrl       String?
+  upvotesCount   Int              @default(1)
+  isResolved     Boolean          @default(false)
+  reportedById   String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  place      AccessiblePlace? @relation(fields: [placeId], references: [id])
+  reportedBy User?            @relation("ReportedObstacles", fields: [reportedById], references: [id])
+}
+
+model RouteSegment {
+  id              String   @id @default(uuid())
+  startLat        Float
+  startLng        Float
+  endLat          Float
+  endLng          Float
+  surfaceType     String   @default("paved") // paved, gravel, tile, broken
+  hasTactileGuide Boolean  @default(false)
+  isWheelchairSafe Boolean @default(true)
+  reportCount     Int      @default(0)
+  isBlocked       Boolean  @default(false)
+}
+
+model CaretakerProfile {
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  specialization     String             // Mobility, Visual Guide, ISL Interpreter, Nursing
+  experienceYears    Int                @default(1)
+  hourlyRateInr      Int                @default(350)
+  bio                String?
+  idProofUrl         String?
+  medicalCertUrl     String?
+  verificationStatus VerificationStatus @default(PENDING)
+  languagesSpoken    String[]           @default(["English", "Hindi"])
+  serviceAreas       String[]           @default(["New Delhi"])
+  averageRating      Float              @default(5.0)
+  totalReviews       Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings CaretakerBooking[]
+}
+
+model CaretakerBooking {
+  id             String        @id @default(uuid())
+  userId         String
+  caretakerId    String
+  status         BookingStatus @default(REQUESTED)
+  scheduledDate  DateTime
+  durationHours  Int           @default(2)
+  totalAmountInr Int
+  pickupAddress  String
+  specialNeeds   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user      User               @relation("UserBookings", fields: [userId], references: [id])
+  caretaker CaretakerProfile   @relation(fields: [caretakerId], references: [id])
+  messages  CaretakerMessage[]
+}
+
+model CaretakerMessage {
+  id        String   @id @default(uuid())
+  bookingId String
+  senderId  String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  booking CaretakerBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  sender  User             @relation("SentMessages", fields: [senderId], references: [id])
+}
+
+model SavedPhrase {
+  id        String   @id @default(uuid())
+  userId    String?
+  text      String
+  category  String   @default("General") // General, Emergency, Transit, Medical, Polite
+  useCount  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Remix Assist",
+  "description": "Assistive navigation, accessible places mapping, emergency SOS, and communication toolkit designed for users with disabilities in India.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
