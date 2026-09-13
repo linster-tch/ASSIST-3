@@ -1,5 +1,5 @@
 {
-  "name": "Remix Assist",
+  "name": "Assist",
   "description": "Assistive navigation, accessible places mapping, emergency SOS, and communication toolkit designed for users with disabilities in India.",
   "requestFramePermissions": [
     "camera",
